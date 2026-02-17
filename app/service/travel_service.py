@@ -1,16 +1,16 @@
-from typing import List, Optional
 from datetime import datetime
 from decimal import Decimal
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
 
+from app.db.daos.travel_dao import TravelDAO
 from app.models.travel import Travel
 
 
 class TravelService:
     def __init__(self, session: Session):
-        self.session = session
+        self.dao = TravelDAO(session)
 
     def create(
         self,
@@ -24,10 +24,9 @@ class TravelService:
         time_start: datetime,
         time_reach: datetime,
         time_end: datetime,
-        time_total: int
+        time_total: int,
     ) -> Travel:
-
-        travel = Travel(
+        return self.dao.create(
             total_value=total_value,
             street_start=street_start,
             neiborghood_start=neiborghood_start,
@@ -38,50 +37,20 @@ class TravelService:
             time_start=time_start,
             time_reach=time_reach,
             time_end=time_end,
-            time_total=time_total
+            time_total=time_total,
         )
 
-        self.session.add(travel)
-        self.session.commit()
-        self.session.refresh(travel)
-
-        return travel
-
     def get_by_id(self, travel_id: int) -> Optional[Travel]:
-        stmt = select(Travel).where(Travel.id == travel_id)
-        result = self.session.execute(stmt).scalar_one_or_none()
-        return result
+        return self.dao.get_by_id(travel_id)
 
     def get_all(self) -> List[Travel]:
-        stmt = select(Travel)
-        result = self.session.execute(stmt).scalars().all()
-        return result
+        return self.dao.get_all()
 
     def update(self, travel_id: int, **kwargs) -> Optional[Travel]:
-        travel = self.get_by_id(travel_id)
-
-        if not travel:
-            return None
-
-        for key, value in kwargs.items():
-            if hasattr(travel, key):
-                setattr(travel, key, value)
-
-        self.session.commit()
-        self.session.refresh(travel)
-
-        return travel
+        return self.dao.update(travel_id, **kwargs)
 
     def delete(self, travel_id: int) -> bool:
-        travel = self.get_by_id(travel_id)
-
-        if not travel:
-            return False
-
-        self.session.delete(travel)
-        self.session.commit()
-
-        return True
+        return self.dao.delete(travel_id)
 
     def search(
         self,
@@ -92,40 +61,15 @@ class TravelService:
         min_value: Optional[Decimal] = None,
         max_value: Optional[Decimal] = None,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
     ) -> List[Travel]:
-
-        filters = []
-
-        if street_start:
-            filters.append(Travel.street_start.ilike(f"%{street_start}%"))
-
-        if neiborghood_start:
-            filters.append(Travel.neiborghood_start.ilike(f"%{neiborghood_start}%"))
-
-        if street_end:
-            filters.append(Travel.street_end.ilike(f"%{street_end}%"))
-
-        if neiborghood_end:
-            filters.append(Travel.neiborghood_end.ilike(f"%{neiborghood_end}%"))
-
-        if min_value is not None:
-            filters.append(Travel.total_value >= min_value)
-
-        if max_value is not None:
-            filters.append(Travel.total_value <= max_value)
-
-        if start_date is not None:
-            filters.append(Travel.time_start >= start_date)
-
-        if end_date is not None:
-            filters.append(Travel.time_end <= end_date)
-
-        stmt = select(Travel)
-
-        if filters:
-            stmt = stmt.where(and_(*filters))
-
-        result = self.session.execute(stmt).scalars().all()
-
-        return result
+        return self.dao.search(
+            street_start=street_start,
+            neiborghood_start=neiborghood_start,
+            street_end=street_end,
+            neiborghood_end=neiborghood_end,
+            min_value=min_value,
+            max_value=max_value,
+            start_date=start_date,
+            end_date=end_date,
+        )
